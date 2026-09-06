@@ -2,7 +2,6 @@ package org.nitish.project.sharedrop
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 
 actual class FilePicker {
     actual fun pickFile(onFilePicked: (path: String) -> Unit) {
