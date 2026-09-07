@@ -4,16 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : ComponentActivity() {
+
+    private val openDocument = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        AndroidContext.deliverPickedFile(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
 
-        AndroidContext.context = this
-        AndroidContext.appContext = applicationContext
+        AndroidContext.initialize(applicationContext)
+        AndroidContext.setFilePickerLauncher {
+            openDocument.launch(arrayOf("*/*"))
+        }
 
         setContent {
             App()
@@ -21,7 +30,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        AndroidContext.context = null
+        AndroidContext.clearFilePickerLauncher()
         super.onDestroy()
     }
 
