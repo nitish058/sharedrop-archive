@@ -7,6 +7,9 @@ import java.io.File
 import java.net.Socket
 
 actual class FileSender {
+
+    private var transferThread: Thread? = null
+    private var currentSocket: Socket? = null
     actual fun sendFile(
         host: String,
         port: Int,
@@ -14,13 +17,13 @@ actual class FileSender {
         onProgress: (Float) -> Unit,
         onResult: (Boolean) -> Unit
     ) {
-        Thread {
+        transferThread =  Thread {
             runBlocking {
                 try {
                     val socket = Socket(host, port)
                     val input = DataInputStream(socket.getInputStream())
                     val output = DataOutputStream(socket.getOutputStream())
-
+                    currentSocket = socket
                     // 1. Handshake: Receive remote public key
                     val receiverPubKeySize = input.readInt()
                     val receiverPubKey = ByteArray(receiverPubKeySize)
@@ -74,8 +77,24 @@ actual class FileSender {
                 } catch (e: Exception) {
                     e.printStackTrace()
                     onResult(false)
+                }finally {
+                    currentSocket = null
+                    transferThread = null
                 }
             }
-        }.start()
+
+
+        }
+        transferThread?.start()
+    }
+
+    actual fun cancel(){
+        try {
+            currentSocket?.close()
+        }catch (_: Exception){}
+
+        transferThread?.interrupt()
+        currentSocket = null
+        transferThread = null
     }
 }

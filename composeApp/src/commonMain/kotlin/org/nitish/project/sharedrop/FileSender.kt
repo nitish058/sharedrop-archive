@@ -6,5 +6,8 @@ expect class FileSender() {
         port: Int,
         absolutePath: String,
         onProgress: (Float) -> Unit,
-        onResult: (Boolean) -> Unit)
+        onResult: (Boolean) -> Unit
+    )
+
+    fun cancel()
 }

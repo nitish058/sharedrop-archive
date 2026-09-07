@@ -10,6 +10,7 @@ import java.net.Socket
 actual class FileReceiver {
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
+    private var currentClient: Socket? = null
 
     actual fun startReceiving(
         port: Int,
@@ -24,8 +25,10 @@ actual class FileReceiver {
 
                 while (isRunning) {
                     val client: Socket = serverSocket?.accept() ?: break
+                    currentClient = client
 
                     Thread {
+                        var tempFile: File? = null
                         runBlocking {
                             try {
                                 val input = DataInputStream(client.getInputStream())
@@ -56,7 +59,7 @@ actual class FileReceiver {
                                 input.readFully(encFileSize)
                                 val fileLength = String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
 
-                                val tempFile = File(context?.cacheDir, "temp_$fileName")
+                                tempFile = File(context?.cacheDir, "temp_$fileName")
                                 onProgress(fileName, 0f)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
@@ -81,19 +84,42 @@ actual class FileReceiver {
                                 client.close()
                             } catch (e: Exception) {
                                 e.printStackTrace()
+                                tempFile?.delete()
+                            }finally {
+                                try{
+                                    client.close()
+                                }catch (_: Exception){}
+
+                                currentClient = null
                             }
                         }
                     }.start()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }finally {
+                isRunning = false
+                try {
+                    serverSocket?.close()
+                }catch (_: Exception){}
+                serverSocket = null
             }
         }.start()
     }
 
     actual fun stopReceiving() {
         isRunning = false
-        serverSocket?.close()
+        // stop accepting new connections
+        try {
+            serverSocket?.close()
+        }catch (_: Exception){}
+
+        try {
+            currentClient?.close()
+        }catch (_: Exception){}
+
+
+        serverSocket = null
         serverSocket = null
     }
 }

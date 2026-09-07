@@ -9,4 +9,6 @@ actual class FileSender {
         onResult: (Boolean) -> Unit
     ) {
     }
+
+    actual fun cancel(){}
 }
