@@ -131,6 +131,11 @@ fun HomeScreen() {
         mutableStateOf(false)
     }
 
+    // True while Android copies a selected document into a local transfer file.
+    var isPreparingFile by remember {
+        mutableStateOf(false)
+    }
+
     // True while THIS device is receiving a file.
     var isReceiving by remember {
         mutableStateOf(false)
@@ -204,10 +209,7 @@ fun HomeScreen() {
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val lifecycleState by lifecycleOwner
-        .lifecycle
-        .currentStateFlow
-        .collectAsState()
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
 
 
     // --------------------------------------------------------
@@ -224,8 +226,7 @@ fun HomeScreen() {
     // --------------------------------------------------------
 
     LaunchedEffect(
-        localDeviceName,
-        lifecycleState
+        localDeviceName, lifecycleState
     ) {
 
         // Wait until the device name has loaded.
@@ -244,8 +245,7 @@ fun HomeScreen() {
         // ----------------------------------------------------
 
         advertiser.startAdvertising(
-            localDeviceName,
-            8080
+            localDeviceName, 8080
         )
 
 
@@ -260,17 +260,15 @@ fun HomeScreen() {
             // Compose state.
             scope.launch(Dispatchers.Main) {
 
-                val currentTime =
-                    Clock.System.now().toEpochMilliseconds()
+                val currentTime = Clock.System.now().toEpochMilliseconds()
 
                 lastSeenMap[device.host] = currentTime
 
 
                 // Check whether this device already exists.
-                val existingIndex =
-                    nearbyDevices.indexOfFirst {
-                        it.host == device.host
-                    }
+                val existingIndex = nearbyDevices.indexOfFirst {
+                    it.host == device.host
+                }
 
 
                 // ------------------------------------------------
@@ -297,9 +295,7 @@ fun HomeScreen() {
                 // EXISTING DEVICE
                 // ------------------------------------------------
 
-                else if (
-                    nearbyDevices[existingIndex].name != device.name
-                ) {
+                else if (nearbyDevices[existingIndex].name != device.name) {
                     nearbyDevices[existingIndex] = device
                 }
             }
@@ -317,19 +313,15 @@ fun HomeScreen() {
                 // Check every 2 seconds.
                 delay(2000.milliseconds)
 
-                val currentTime =
-                    Clock.System.now().toEpochMilliseconds()
+                val currentTime = Clock.System.now().toEpochMilliseconds()
 
                 // Device is considered gone after 10 seconds
                 // without being discovered again.
                 val timeout = 10_000L
 
-                val expiredHosts =
-                    lastSeenMap
-                        .filter { (_, lastSeen) ->
-                            currentTime - lastSeen > timeout
-                        }
-                        .keys
+                val expiredHosts = lastSeenMap.filter { (_, lastSeen) ->
+                    currentTime - lastSeen > timeout
+                }.keys
 
 
                 if (expiredHosts.isNotEmpty()) {
@@ -362,8 +354,7 @@ fun HomeScreen() {
                 // Receiving has started.
                 isReceiving = true
 
-                statusMessage =
-                    "Receiving '$fileName'..."
+                statusMessage = "Receiving '$fileName'..."
 
                 transferProgress = progress
             },
@@ -378,22 +369,19 @@ fun HomeScreen() {
 
                 // Move the temporary file to final storage.
                 FileSaver().moveFile(
-                    fileName = fileName,
-                    sourcePath = tempFilePath
+                    fileName = fileName, sourcePath = tempFilePath
                 ) { success, path ->
 
                     // Add file to received list.
                     receivedFiles.add(fileName)
 
-                    statusMessage =
-                        if (success) {
-                            "Saved: $fileName to $path"
-                        } else {
-                            "Received but failed to save: $fileName"
-                        }
+                    statusMessage = if (success) {
+                        "Saved: $fileName to $path"
+                    } else {
+                        "Received but failed to save: $fileName"
+                    }
                 }
-            }
-        )
+            })
     }
 
 
@@ -435,8 +423,7 @@ fun HomeScreen() {
             TopAppBar(
                 title = {
                     Text("ShareDrop")
-                }
-            )
+                })
         },
 
 
@@ -447,10 +434,7 @@ fun HomeScreen() {
         bottomBar = {
 
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
 
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -465,42 +449,31 @@ fun HomeScreen() {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
 
-                        horizontalArrangement =
-                            Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.SpaceBetween,
 
-                        verticalAlignment =
-                            Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
 
                         Text(
                             text = statusMessage,
 
-                            style =
-                                MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodySmall,
 
-                            modifier =
-                                Modifier.weight(1f)
+                            modifier = Modifier.weight(1f)
                         )
 
 
                         // Display percentage while transferring.
-                        if (
-                            transferProgress > 0f &&
-                            transferProgress < 1f
-                        ) {
+                        if (transferProgress > 0f && transferProgress < 1f) {
 
                             Text(
-                                text =
-                                    "${(transferProgress * 100).toInt()}%",
+                                text = "${(transferProgress * 100).toInt()}%",
 
-                                style =
-                                    MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.labelLarge,
 
-                                color =
-                                    MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.primary,
 
-                                fontWeight =
-                                    FontWeight.Bold
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -510,30 +483,30 @@ fun HomeScreen() {
                     // PROGRESS BAR
                     // ------------------------------------------------
 
-                    if (
-                        transferProgress > 0f &&
-                        transferProgress < 1f
-                    ) {
+                    if (isPreparingFile || (transferProgress > 0f && transferProgress < 1f)) {
 
                         Spacer(
-                            modifier =
-                                Modifier.height(4.dp)
+                            modifier = Modifier.height(4.dp)
                         )
 
-                        LinearProgressIndicator(
-                            progress = {
-                                transferProgress
-                            },
+                        if (isPreparingFile) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            LinearProgressIndicator(
+                                progress = {
+                                    transferProgress
+                                },
 
-                            modifier =
-                                Modifier.fillMaxWidth()
-                        )
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
 
 
                     Spacer(
-                        modifier =
-                            Modifier.height(8.dp)
+                        modifier = Modifier.height(8.dp)
                     )
                 }
 
@@ -547,10 +520,7 @@ fun HomeScreen() {
                     // The button must remain enabled while a
                     // transfer is running so that the user can
                     // press Cancel.
-                    enabled =
-                        selectedDevice != null ||
-                                isSending ||
-                                isReceiving,
+                    enabled = !isPreparingFile && (selectedDevice != null || isSending || isReceiving),
 
 
                     // ------------------------------------------------
@@ -602,22 +572,20 @@ fun HomeScreen() {
 
                         if (device == null) {
 
-                            statusMessage =
-                                "Please select a device first!"
+                            statusMessage = "Please select a device first!"
 
                             return@Button
                         }
 
 
                         // Open platform-specific file picker.
-                        filePicker.pickFile { absolutePath ->
+                        filePicker.pickFile(onFilePicked = { absolutePath ->
 
-                            val fileName =
-                                absolutePath.pathToFileName()
+                            val fileName = absolutePath.pathToFileName()
 
+                            isPreparingFile = false
 
-                            statusMessage =
-                                "Sending '$fileName'..."
+                            statusMessage = "Sending '$fileName'..."
 
 
                             // Mark transfer as active.
@@ -654,8 +622,7 @@ fun HomeScreen() {
                                         Dispatchers.Main
                                     ) {
 
-                                        transferProgress =
-                                            progress
+                                        transferProgress = progress
                                     }
                                 },
 
@@ -678,21 +645,24 @@ fun HomeScreen() {
 
 
                                         // Display result.
-                                        statusMessage =
-                                            if (success) {
+                                        statusMessage = if (success) {
 
-                                                "Sent '$fileName'!"
+                                            "Sent '$fileName'!"
 
-                                            } else {
+                                        } else {
 
-                                                "Transfer failed"
-                                            }
+                                            "Transfer failed"
+                                        }
                                     }
-                                }
-                            )
-                        }
-                    }
-                ) {
+                                })
+                        }, onFilePreparationStarted = {
+                            isPreparingFile = true
+                            statusMessage = "Preparing selected file..."
+                        }, onFilePickFailed = {
+                            isPreparingFile = false
+                            statusMessage = "Unable to prepare selected file"
+                        })
+                    }) {
 
                     // ------------------------------------------------
                     // BUTTON TEXT
@@ -702,17 +672,15 @@ fun HomeScreen() {
 
                         when {
 
-                            isSending ->
-                                "Cancel"
+                            isPreparingFile -> "Preparing file..."
 
-                            isReceiving ->
-                                "Cancel"
+                            isSending -> "Cancel"
 
-                            selectedDevice == null ->
-                                "Select a device to send"
+                            isReceiving -> "Cancel"
 
-                            else ->
-                                "Send File to ${selectedDevice!!.name}"
+                            selectedDevice == null -> "Select a device to send"
+
+                            else -> "Send File to ${selectedDevice!!.name}"
                         }
                     )
                 }
@@ -727,10 +695,7 @@ fun HomeScreen() {
         // --------------------------------------------------------
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp)
         ) {
 
 
@@ -739,31 +704,26 @@ fun HomeScreen() {
             // ----------------------------------------------------
 
             Text(
-                text =
-                    "Your device name: ${
-                        localDeviceName ?: "Loading..."
-                    }",
+                text = "Your device name: ${
+                    localDeviceName ?: "Loading..."
+                }",
 
-                style =
-                    MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium
             )
 
 
             Spacer(
-                modifier =
-                    Modifier.height(8.dp)
+                modifier = Modifier.height(8.dp)
             )
 
 
             HorizontalDivider(
-                modifier =
-                    Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth()
             )
 
 
             Spacer(
-                modifier =
-                    Modifier.height(8.dp)
+                modifier = Modifier.height(8.dp)
             )
 
 
@@ -774,14 +734,12 @@ fun HomeScreen() {
             Text(
                 text = "Nearby Devices",
 
-                style =
-                    MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium
             )
 
 
             Spacer(
-                modifier =
-                    Modifier.height(8.dp)
+                modifier = Modifier.height(8.dp)
             )
 
 
@@ -789,24 +747,17 @@ fun HomeScreen() {
 
                 // No devices discovered yet.
                 Box(
-                    modifier =
-                        Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
 
-                    contentAlignment =
-                        Alignment.Center
+                    contentAlignment = Alignment.Center
                 ) {
 
                     Text(
-                        text =
-                            "Searching for devices...",
+                        text = "Searching for devices...",
 
-                        style =
-                            MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium,
 
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -824,75 +775,50 @@ fun HomeScreen() {
 
                         Card(
 
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable {
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
 
-                                    // Select/deselect device.
-                                    selectedDevice =
-                                        if (
-                                            selectedDevice == device
-                                        ) {
-                                            null
-                                        } else {
-                                            device
-                                        }
-                                },
+                                // Select/deselect device.
+                                selectedDevice = if (selectedDevice == device) {
+                                    null
+                                } else {
+                                    device
+                                }
+                            },
 
 
                             // Highlight selected device.
-                            colors =
-                                CardDefaults.cardColors(
+                            colors = CardDefaults.cardColors(
 
-                                    containerColor =
-                                        if (
-                                            selectedDevice == device
-                                        ) {
+                                containerColor = if (selectedDevice == device) {
 
-                                            MaterialTheme
-                                                .colorScheme
-                                                .primaryContainer
+                                    MaterialTheme.colorScheme.primaryContainer
 
-                                        } else {
+                                } else {
 
-                                            MaterialTheme
-                                                .colorScheme
-                                                .surfaceVariant
-                                        }
-                                )
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
                         ) {
 
                             Column(
-                                modifier =
-                                    Modifier.padding(12.dp)
+                                modifier = Modifier.padding(12.dp)
                             ) {
 
                                 // Device name.
                                 Text(
                                     text = device.name,
 
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .bodyLarge
+                                    style = MaterialTheme.typography.bodyLarge
                                 )
 
 
                                 // Device address.
                                 Text(
-                                    text =
-                                        "${device.host}:${device.port}",
+                                    text = "${device.host}:${device.port}",
 
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .bodySmall,
+                                    style = MaterialTheme.typography.bodySmall,
 
-                                    color =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -908,24 +834,19 @@ fun HomeScreen() {
             if (receivedFiles.isNotEmpty()) {
 
                 Spacer(
-                    modifier =
-                        Modifier.height(16.dp)
+                    modifier = Modifier.height(16.dp)
                 )
 
 
                 Text(
                     text = "Received Files",
 
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleMedium
+                    style = MaterialTheme.typography.titleMedium
                 )
 
 
                 Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
 
@@ -938,10 +859,9 @@ fun HomeScreen() {
                         Text(
                             text = fileName,
 
-                            modifier =
-                                Modifier.padding(
-                                    vertical = 4.dp
-                                )
+                            modifier = Modifier.padding(
+                                vertical = 4.dp
+                            )
                         )
                     }
                 }
@@ -975,6 +895,5 @@ fun HomeScreen() {
 //
 private fun String.pathToFileName(): String {
 
-    return replace("\\", "/")
-        .substringAfterLast('/')
+    return replace("\\", "/").substringAfterLast('/')
 }

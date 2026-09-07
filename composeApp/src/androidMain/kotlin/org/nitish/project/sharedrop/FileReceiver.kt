@@ -19,7 +19,7 @@ actual class FileReceiver {
     ) {
         Thread {
             try {
-                val context = AndroidContext.appContext
+                val context = AndroidContext.requireAppContext()
                 serverSocket = ServerSocket(port)
                 isRunning = true
 
@@ -46,7 +46,8 @@ actual class FileReceiver {
                                 input.readFully(senderPubKey)
 
                                 // 3. Derive End-to-End AES key
-                                val aesKey = CryptoEngine.deriveAesKey(keyPair.privateKey, senderPubKey)
+                                val aesKey =
+                                    CryptoEngine.deriveAesKey(keyPair.privateKey, senderPubKey)
 
                                 // 4. Receive and decrypt metadata
                                 val encFileNameSize = input.readInt()
@@ -57,9 +58,10 @@ actual class FileReceiver {
                                 val encFileSizeSize = input.readInt()
                                 val encFileSize = ByteArray(encFileSizeSize)
                                 input.readFully(encFileSize)
-                                val fileLength = String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
+                                val fileLength =
+                                    String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
 
-                                tempFile = File(context?.cacheDir, "temp_$fileName")
+                                tempFile = File(context.cacheDir, "temp_$fileName")
                                 onProgress(fileName, 0f)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
@@ -76,7 +78,10 @@ actual class FileReceiver {
                                         fileOut.write(decChunk)
 
                                         totalDecryptedRead += decChunk.size
-                                        onProgress(fileName, totalDecryptedRead.toFloat() / fileLength.toFloat())
+                                        onProgress(
+                                            fileName,
+                                            totalDecryptedRead.toFloat() / fileLength.toFloat()
+                                        )
                                     }
                                 }
 
@@ -85,10 +90,11 @@ actual class FileReceiver {
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 tempFile?.delete()
-                            }finally {
-                                try{
+                            } finally {
+                                try {
                                     client.close()
-                                }catch (_: Exception){}
+                                } catch (_: Exception) {
+                                }
 
                                 currentClient = null
                             }
@@ -97,11 +103,12 @@ actual class FileReceiver {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-            }finally {
+            } finally {
                 isRunning = false
                 try {
                     serverSocket?.close()
-                }catch (_: Exception){}
+                } catch (_: Exception) {
+                }
                 serverSocket = null
             }
         }.start()
@@ -112,11 +119,13 @@ actual class FileReceiver {
         // stop accepting new connections
         try {
             serverSocket?.close()
-        }catch (_: Exception){}
+        } catch (_: Exception) {
+        }
 
         try {
             currentClient?.close()
-        }catch (_: Exception){}
+        } catch (_: Exception) {
+        }
 
 
         serverSocket = null
