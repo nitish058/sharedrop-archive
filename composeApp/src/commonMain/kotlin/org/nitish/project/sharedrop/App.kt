@@ -124,6 +124,13 @@ fun HomeScreen() {
     // Total MB
     var totalMB by remember { mutableStateOf(0L) }
 
+    // Transfer Speed
+    var transferSpeed by remember {
+        mutableStateOf(0.0)
+    }
+    val receiveSpeedTracker = remember { TransferSpeedTracker() }
+    val sendSpeedTracker = remember { TransferSpeedTracker() }
+
 
     // Transfer progress.
     //
@@ -358,10 +365,17 @@ fun HomeScreen() {
 
             onProgress = { fileName, progress, received, total ->
 
+                if (!isReceiving) {
+                    receiveSpeedTracker.reset()
+                }
+
+
                 // Receiving has started.
                 isReceiving = true
 
                 statusMessage = "Receiving '$fileName'..."
+
+                receiveSpeedTracker.update(received)?.let { transferSpeed = it }
 
                 transferProgress = progress
 
@@ -457,13 +471,25 @@ fun HomeScreen() {
 
                 if (statusMessage.isNotEmpty()) {
 
-                    Text(
-                        text = if(totalMB > 1024){
-                            "${transferredMB / 1024 } Gb / ${totalMB / 1024 } Gb"
-                        }else{
-                            "$transferredMB Mb / $totalMB Mb"
-                        }
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+
+                        horizontalArrangement = Arrangement.SpaceBetween,
+
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (totalMB > 1024) {
+                                "${transferredMB / 1024} Gb / ${totalMB / 1024} Gb"
+                            } else {
+                                "$transferredMB Mb / $totalMB Mb"
+                            }
+                        )
+
+                        Text(
+                            text = "${(transferSpeed / 1024.0 / 1024.0).toInt()} MB/s"
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -623,6 +649,8 @@ fun HomeScreen() {
                             //
                             // because then cancel() would be
                             // called on a different FileSender.
+
+                            sendSpeedTracker.reset()
                             sender.sendFile(
 
                                 host = device.host,
@@ -642,6 +670,8 @@ fun HomeScreen() {
                                         Dispatchers.Main
                                     ) {
 
+                                        sendSpeedTracker.update(transferred)
+                                            ?.let { transferSpeed = it }
                                         transferProgress = progress
                                         transferredMB = (transferred / 1024 / 1024)
                                         totalMB = (total / 1024 / 1024)
