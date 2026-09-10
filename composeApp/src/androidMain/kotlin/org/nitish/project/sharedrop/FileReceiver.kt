@@ -10,6 +10,7 @@ import java.net.Socket
 actual class FileReceiver {
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
+    @Volatile
     private var currentClient: Socket? = null
 
     actual fun startReceiving(
@@ -96,7 +97,7 @@ actual class FileReceiver {
                                 } catch (_: Exception) {
                                 }
 
-                                currentClient = null
+                                if (currentClient === client) currentClient = null
                             }
                         }
                     }.start()
@@ -114,6 +115,13 @@ actual class FileReceiver {
         }.start()
     }
 
+    actual fun cancelCurrentTransfer() {
+        try {
+            currentClient?.close()
+        } catch (_: Exception) {
+        }
+    }
+
     actual fun stopReceiving() {
         isRunning = false
         // stop accepting new connections
@@ -122,13 +130,9 @@ actual class FileReceiver {
         } catch (_: Exception) {
         }
 
-        try {
-            currentClient?.close()
-        } catch (_: Exception) {
-        }
+        cancelCurrentTransfer()
 
 
-        serverSocket = null
         serverSocket = null
     }
 }

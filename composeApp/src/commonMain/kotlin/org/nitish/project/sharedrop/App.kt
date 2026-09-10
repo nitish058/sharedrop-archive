@@ -553,8 +553,9 @@ fun HomeScreen() {
 
                         if (isReceiving) {
 
-                            // Stop the receiver.
-                            receiver.stopReceiving()
+                            // Close the active sender connection but keep listening
+                            // for future transfers.
+                            receiver.cancelCurrentTransfer()
 
                             isReceiving = false
                             transferProgress = 0f

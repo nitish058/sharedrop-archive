@@ -8,6 +8,9 @@ actual class FileReceiver {
     ) {
     }
 
+    actual fun cancelCurrentTransfer() {
+    }
+
     actual fun stopReceiving() {
     }
 }

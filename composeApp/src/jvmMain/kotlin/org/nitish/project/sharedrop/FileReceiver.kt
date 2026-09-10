@@ -10,6 +10,8 @@ import java.net.Socket
 actual class FileReceiver {
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
+    @Volatile
+    private var currentClient: Socket? = null
 
     actual fun startReceiving(
         port: Int,
@@ -23,8 +25,10 @@ actual class FileReceiver {
 
                 while (isRunning) {
                     val client: Socket = serverSocket?.accept() ?: break
+                    currentClient = client
 
                     Thread {
+                        var tempFile: File? = null
                         runBlocking {
                             try {
                                 val input = DataInputStream(client.getInputStream())
@@ -56,7 +60,7 @@ actual class FileReceiver {
                                 val fileLength = String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
 
                                 val systemTempDir = System.getProperty("java.io.tmpdir")
-                                val tempFile = File(systemTempDir, "temp_$fileName")
+                                tempFile = File(systemTempDir, "temp_$fileName")
                                 onProgress(fileName, 0f)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
@@ -78,9 +82,15 @@ actual class FileReceiver {
                                 }
 
                                 onFileReceived(fileName, tempFile.absolutePath)
-                                client.close()
                             } catch (e: Exception) {
                                 e.printStackTrace()
+                                tempFile?.delete()
+                            } finally {
+                                try {
+                                    client.close()
+                                } catch (_: Exception) {
+                                }
+                                if (currentClient === client) currentClient = null
                             }
                         }
                     }.start()
@@ -91,8 +101,16 @@ actual class FileReceiver {
         }.start()
     }
 
+    actual fun cancelCurrentTransfer() {
+        try {
+            currentClient?.close()
+        } catch (_: Exception) {
+        }
+    }
+
     actual fun stopReceiving() {
         isRunning = false
+        cancelCurrentTransfer()
         serverSocket?.close()
         serverSocket = null
     }
