@@ -3,7 +3,7 @@ package org.nitish.project.sharedrop
 expect class FileReceiver() {
     fun startReceiving(
         port: Int,
-        onProgress: (fileName : String, progress: Float) -> Unit,
+        onProgress: (fileName : String, progress: Float, transferredBytes: Long, totalBytes: Long ) -> Unit,
         onFileReceived: (fileName: String, tempFilePath: String) -> Unit
     )
 

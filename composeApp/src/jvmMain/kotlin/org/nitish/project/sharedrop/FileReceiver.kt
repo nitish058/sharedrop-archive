@@ -15,7 +15,7 @@ actual class FileReceiver {
 
     actual fun startReceiving(
         port: Int,
-        onProgress: (fileName: String, progress: Float) -> Unit,
+        onProgress: (fileName: String, progress: Float, transferredBytes: Long, totalBytes: Long) -> Unit,
         onFileReceived: (fileName: String, tempFilePath: String) -> Unit
     ) {
         Thread {
@@ -61,7 +61,7 @@ actual class FileReceiver {
 
                                 val systemTempDir = System.getProperty("java.io.tmpdir")
                                 tempFile = File(systemTempDir, "temp_$fileName")
-                                onProgress(fileName, 0f)
+                                onProgress(fileName, 0f, 0L, 0L)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
                                 var totalDecryptedRead = 0L
@@ -77,7 +77,7 @@ actual class FileReceiver {
                                         fileOut.write(decChunk)
 
                                         totalDecryptedRead += decChunk.size
-                                        onProgress(fileName, totalDecryptedRead.toFloat() / fileLength.toFloat())
+                                        onProgress(fileName, totalDecryptedRead.toFloat() / fileLength.toFloat(), totalDecryptedRead, fileLength )
                                     }
                                 }
 

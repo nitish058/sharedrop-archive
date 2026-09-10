@@ -118,6 +118,13 @@ fun HomeScreen() {
         mutableStateOf("")
     }
 
+    // Transferred MB
+    var transferredMB by remember { mutableStateOf(0L) }
+
+    // Total MB
+    var totalMB by remember { mutableStateOf(0L) }
+
+
     // Transfer progress.
     //
     // 0f   = 0%
@@ -349,7 +356,7 @@ fun HomeScreen() {
         receiver.startReceiving(
             port = 8080,
 
-            onProgress = { fileName, progress ->
+            onProgress = { fileName, progress, received, total ->
 
                 // Receiving has started.
                 isReceiving = true
@@ -357,6 +364,10 @@ fun HomeScreen() {
                 statusMessage = "Receiving '$fileName'..."
 
                 transferProgress = progress
+
+                transferredMB = received / 1024 / 1024
+
+                totalMB = total / 1024 / 1024
             },
 
             onFileReceived = { fileName, tempFilePath ->
@@ -445,6 +456,14 @@ fun HomeScreen() {
                 // ------------------------------------------------
 
                 if (statusMessage.isNotEmpty()) {
+
+                    Text(
+                        text = if(totalMB > 1024){
+                            "${transferredMB / 1024 } Gb / ${totalMB / 1024 } Gb"
+                        }else{
+                            "$transferredMB Mb / $totalMB Mb"
+                        }
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -617,13 +636,15 @@ fun HomeScreen() {
                                 // PROGRESS CALLBACK
                                 // --------------------------------
 
-                                onProgress = { progress ->
+                                onProgress = { progress, transferred, total ->
 
                                     scope.launch(
                                         Dispatchers.Main
                                     ) {
 
                                         transferProgress = progress
+                                        transferredMB = (transferred / 1024 / 1024)
+                                        totalMB = (total / 1024 / 1024)
                                     }
                                 },
 
