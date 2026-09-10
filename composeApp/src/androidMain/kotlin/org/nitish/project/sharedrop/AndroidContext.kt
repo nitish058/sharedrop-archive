@@ -14,7 +14,10 @@ object AndroidContext {
     var onFilePicked: ((path: String) -> Unit)? = null
     var onFilePreparationStarted: (() -> Unit)? = null
     var onFilePickFailed: (() -> Unit)? = null
-    private var filePickerLauncherReference: WeakReference<(() -> Unit)>? = null
+    // This callback belongs to MainActivity and is cleared in onDestroy(). It must
+    // be held strongly while the activity is alive; a weak lambda can be collected
+    // before the user presses the send button.
+    private var filePickerLauncher: (() -> Unit)? = null
 
     fun initialize(context: Context) {
         appContextReference = WeakReference(context.applicationContext)
@@ -24,11 +27,11 @@ object AndroidContext {
         appContextReference?.get() ?: error("Application context is not available")
 
     fun setFilePickerLauncher(launcher: () -> Unit) {
-        filePickerLauncherReference = WeakReference(launcher)
+        filePickerLauncher = launcher
     }
 
     fun clearFilePickerLauncher() {
-        filePickerLauncherReference = null
+        filePickerLauncher = null
     }
 
     fun openFilePicker(
@@ -36,12 +39,21 @@ object AndroidContext {
         onFilePreparationStarted: () -> Unit,
         onFilePickFailed: () -> Unit
     ): Boolean {
-        val launcher = filePickerLauncherReference?.get() ?: return false
+        val launcher = filePickerLauncher ?: run {
+            onFilePickFailed()
+            return false
+        }
         this.onFilePicked = onFilePicked
         this.onFilePreparationStarted = onFilePreparationStarted
         this.onFilePickFailed = onFilePickFailed
-        launcher()
-        return true
+        return runCatching { launcher() }
+            .onFailure {
+                this.onFilePicked = null
+                this.onFilePreparationStarted = null
+                this.onFilePickFailed = null
+                onFilePickFailed()
+            }
+            .isSuccess
     }
 
     /**
@@ -56,8 +68,11 @@ object AndroidContext {
         onFilePicked = null
         onFilePreparationStarted = null
         onFilePickFailed = null
-        val context = appContextReference?.get() ?: return
-        if (uri == null) return
+        val context = appContextReference?.get()
+        if (context == null || uri == null) {
+            pickFailed?.invoke()
+            return
+        }
 
         preparationStarted?.invoke()
 
