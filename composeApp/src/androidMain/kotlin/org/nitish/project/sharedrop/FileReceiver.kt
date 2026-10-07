@@ -10,11 +10,12 @@ import java.net.Socket
 actual class FileReceiver {
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
+    @Volatile
     private var currentClient: Socket? = null
 
     actual fun startReceiving(
         port: Int,
-        onProgress: (fileName: String, progress: Float) -> Unit,
+        onProgress: (fileName: String, progress: Float, transferredBytes: Long, totalBytes: Long) -> Unit,
         onFileReceived: (fileName: String, tempFilePath: String) -> Unit
     ) {
         Thread {
@@ -62,7 +63,7 @@ actual class FileReceiver {
                                     String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
 
                                 tempFile = File(context.cacheDir, "temp_$fileName")
-                                onProgress(fileName, 0f)
+                                onProgress(fileName, 0f, 0L, 0L)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
                                 var totalDecryptedRead = 0L
@@ -80,7 +81,9 @@ actual class FileReceiver {
                                         totalDecryptedRead += decChunk.size
                                         onProgress(
                                             fileName,
-                                            totalDecryptedRead.toFloat() / fileLength.toFloat()
+                                            totalDecryptedRead.toFloat() / fileLength.toFloat(),
+                                            totalDecryptedRead,
+                                            fileLength
                                         )
                                     }
                                 }
@@ -96,7 +99,7 @@ actual class FileReceiver {
                                 } catch (_: Exception) {
                                 }
 
-                                currentClient = null
+                                if (currentClient === client) currentClient = null
                             }
                         }
                     }.start()
@@ -114,6 +117,13 @@ actual class FileReceiver {
         }.start()
     }
 
+    actual fun cancelCurrentTransfer() {
+        try {
+            currentClient?.close()
+        } catch (_: Exception) {
+        }
+    }
+
     actual fun stopReceiving() {
         isRunning = false
         // stop accepting new connections
@@ -122,13 +132,9 @@ actual class FileReceiver {
         } catch (_: Exception) {
         }
 
-        try {
-            currentClient?.close()
-        } catch (_: Exception) {
-        }
+        cancelCurrentTransfer()
 
 
-        serverSocket = null
         serverSocket = null
     }
 }

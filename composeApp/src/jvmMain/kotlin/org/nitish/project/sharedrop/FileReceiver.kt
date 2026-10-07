@@ -10,10 +10,12 @@ import java.net.Socket
 actual class FileReceiver {
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
+    @Volatile
+    private var currentClient: Socket? = null
 
     actual fun startReceiving(
         port: Int,
-        onProgress: (fileName: String, progress: Float) -> Unit,
+        onProgress: (fileName: String, progress: Float, transferredBytes: Long, totalBytes: Long) -> Unit,
         onFileReceived: (fileName: String, tempFilePath: String) -> Unit
     ) {
         Thread {
@@ -23,8 +25,10 @@ actual class FileReceiver {
 
                 while (isRunning) {
                     val client: Socket = serverSocket?.accept() ?: break
+                    currentClient = client
 
                     Thread {
+                        var tempFile: File? = null
                         runBlocking {
                             try {
                                 val input = DataInputStream(client.getInputStream())
@@ -56,8 +60,8 @@ actual class FileReceiver {
                                 val fileLength = String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
 
                                 val systemTempDir = System.getProperty("java.io.tmpdir")
-                                val tempFile = File(systemTempDir, "temp_$fileName")
-                                onProgress(fileName, 0f)
+                                tempFile = File(systemTempDir, "temp_$fileName")
+                                onProgress(fileName, 0f, 0L, 0L)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
                                 var totalDecryptedRead = 0L
@@ -73,14 +77,20 @@ actual class FileReceiver {
                                         fileOut.write(decChunk)
 
                                         totalDecryptedRead += decChunk.size
-                                        onProgress(fileName, totalDecryptedRead.toFloat() / fileLength.toFloat())
+                                        onProgress(fileName, totalDecryptedRead.toFloat() / fileLength.toFloat(), totalDecryptedRead, fileLength )
                                     }
                                 }
 
                                 onFileReceived(fileName, tempFile.absolutePath)
-                                client.close()
                             } catch (e: Exception) {
                                 e.printStackTrace()
+                                tempFile?.delete()
+                            } finally {
+                                try {
+                                    client.close()
+                                } catch (_: Exception) {
+                                }
+                                if (currentClient === client) currentClient = null
                             }
                         }
                     }.start()
@@ -91,8 +101,16 @@ actual class FileReceiver {
         }.start()
     }
 
+    actual fun cancelCurrentTransfer() {
+        try {
+            currentClient?.close()
+        } catch (_: Exception) {
+        }
+    }
+
     actual fun stopReceiving() {
         isRunning = false
+        cancelCurrentTransfer()
         serverSocket?.close()
         serverSocket = null
     }

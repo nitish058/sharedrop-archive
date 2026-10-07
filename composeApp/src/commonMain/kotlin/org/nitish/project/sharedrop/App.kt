@@ -118,6 +118,20 @@ fun HomeScreen() {
         mutableStateOf("")
     }
 
+    // Transferred MB
+    var transferredMB by remember { mutableStateOf(0L) }
+
+    // Total MB
+    var totalMB by remember { mutableStateOf(0L) }
+
+    // Transfer Speed
+    var transferSpeed by remember {
+        mutableStateOf(0.0)
+    }
+    val receiveSpeedTracker = remember { TransferSpeedTracker() }
+    val sendSpeedTracker = remember { TransferSpeedTracker() }
+
+
     // Transfer progress.
     //
     // 0f   = 0%
@@ -349,14 +363,25 @@ fun HomeScreen() {
         receiver.startReceiving(
             port = 8080,
 
-            onProgress = { fileName, progress ->
+            onProgress = { fileName, progress, received, total ->
+
+                if (!isReceiving) {
+                    receiveSpeedTracker.reset()
+                }
+
 
                 // Receiving has started.
                 isReceiving = true
 
                 statusMessage = "Receiving '$fileName'..."
 
+                receiveSpeedTracker.update(received)?.let { transferSpeed = it }
+
                 transferProgress = progress
+
+                transferredMB = received / 1024 / 1024
+
+                totalMB = total / 1024 / 1024
             },
 
             onFileReceived = { fileName, tempFilePath ->
@@ -364,6 +389,8 @@ fun HomeScreen() {
                 // The receiving socket has successfully
                 // received the complete file.
                 isReceiving = false
+
+                receiveSpeedTracker.reset()
 
                 transferProgress = 0f
 
@@ -445,6 +472,24 @@ fun HomeScreen() {
                 // ------------------------------------------------
 
                 if (statusMessage.isNotEmpty()) {
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+
+                        horizontalArrangement = Arrangement.SpaceBetween,
+
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${formatSize(transferredMB)} / ${formatSize(totalMB)}"
+                        )
+
+                        if (isReceiving) {
+                            Text(
+                                text = "${(transferSpeed / 1024.0 / 1024.0).toInt()} MB/s"
+                            )
+                        }
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -553,8 +598,9 @@ fun HomeScreen() {
 
                         if (isReceiving) {
 
-                            // Stop the receiver.
-                            receiver.stopReceiving()
+                            // Close the active sender connection but keep listening
+                            // for future transfers.
+                            receiver.cancelCurrentTransfer()
 
                             isReceiving = false
                             transferProgress = 0f
@@ -603,6 +649,8 @@ fun HomeScreen() {
                             //
                             // because then cancel() would be
                             // called on a different FileSender.
+
+                            sendSpeedTracker.reset()
                             sender.sendFile(
 
                                 host = device.host,
@@ -616,13 +664,17 @@ fun HomeScreen() {
                                 // PROGRESS CALLBACK
                                 // --------------------------------
 
-                                onProgress = { progress ->
+                                onProgress = { progress, transferred, total ->
 
                                     scope.launch(
                                         Dispatchers.Main
                                     ) {
 
+                                        sendSpeedTracker.update(transferred)
+                                            ?.let { transferSpeed = it }
                                         transferProgress = progress
+                                        transferredMB = (transferred / 1024 / 1024)
+                                        totalMB = (total / 1024 / 1024)
                                     }
                                 },
 
@@ -896,4 +948,13 @@ fun HomeScreen() {
 private fun String.pathToFileName(): String {
 
     return replace("\\", "/").substringAfterLast('/')
+}
+
+fun formatSize(mb: Long): String {
+    return if (mb >= 1024) {
+        val gb = mb / 1024.0
+        "${gb.toString().take(4)} GB"
+    } else {
+        "$mb MB"
+    }
 }

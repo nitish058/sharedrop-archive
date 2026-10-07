@@ -14,7 +14,7 @@ actual class FileSender {
         host: String,
         port: Int,
         absolutePath: String,
-        onProgress: (Float) -> Unit,
+        onProgress: (Float, Long, Long) -> Unit,
         onResult: (Boolean) -> Unit
     ) {
 
@@ -73,7 +73,7 @@ actual class FileSender {
                         output.write(encryptedChunk)
 
                         bytesSent += bytesRead
-                        onProgress(bytesSent.toFloat() / totalBytes.toFloat())
+                        onProgress(bytesSent.toFloat() / totalBytes.toFloat(), bytesSent, totalBytes)
 
                         bytesRead = inputStream.read(buffer)
                     }
