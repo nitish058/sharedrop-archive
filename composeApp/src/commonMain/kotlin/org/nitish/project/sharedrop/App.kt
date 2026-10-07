@@ -390,6 +390,8 @@ fun HomeScreen() {
                 // received the complete file.
                 isReceiving = false
 
+                receiveSpeedTracker.reset()
+
                 transferProgress = 0f
 
                 // Move the temporary file to final storage.
@@ -479,16 +481,14 @@ fun HomeScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (totalMB > 1024) {
-                                "${transferredMB / 1024} Gb / ${totalMB / 1024} Gb"
-                            } else {
-                                "$transferredMB Mb / $totalMB Mb"
-                            }
+                            text = "${formatSize(transferredMB)} / ${formatSize(totalMB)}"
                         )
 
-                        Text(
-                            text = "${(transferSpeed / 1024.0 / 1024.0).toInt()} MB/s"
-                        )
+                        if (isReceiving) {
+                            Text(
+                                text = "${(transferSpeed / 1024.0 / 1024.0).toInt()} MB/s"
+                            )
+                        }
                     }
 
                     Row(
@@ -948,4 +948,13 @@ fun HomeScreen() {
 private fun String.pathToFileName(): String {
 
     return replace("\\", "/").substringAfterLast('/')
+}
+
+fun formatSize(mb: Long): String {
+    return if (mb >= 1024) {
+        val gb = mb / 1024.0
+        "${gb.toString().take(4)} GB"
+    } else {
+        "$mb MB"
+    }
 }
