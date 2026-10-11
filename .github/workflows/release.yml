@@ -1,11 +1,12 @@
-
-name: Build and Release ShareDrop
-
 on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v1.2.3"
+        required: true
 
 permissions:
   contents: write
@@ -108,9 +109,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
+          if [ "$TAG" = "main" ] || [ -z "$TAG" ]; then
+            echo "Release tag is missing or invalid. Use a tag like v1.2.3"
+            exit 1
+          fi
+
           gh release create "$TAG" dist/* \
-            --verify-tag \
             --title "ShareDrop $TAG" \
             --generate-notes
