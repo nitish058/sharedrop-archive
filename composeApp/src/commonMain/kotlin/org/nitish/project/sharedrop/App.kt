@@ -45,6 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.nitish.project.sharedrop.theme.ShareDropTheme
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -64,7 +65,7 @@ import kotlin.time.Duration.Companion.milliseconds
 //
 @Composable
 fun App() {
-    MaterialTheme {
+    ShareDropTheme {
         HomeScreen()
     }
 }
