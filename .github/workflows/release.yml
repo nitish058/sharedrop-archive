@@ -1,0 +1,116 @@
+
+name: Build and Release ShareDrop
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    name: Build desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            task: packageDmg
+            extension: dmg
+          - os: windows-latest
+            task: packageMsi
+            extension: msi
+          - os: ubuntu-latest
+            task: packageDeb
+            extension: deb
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build installer
+        shell: bash
+        run: ./gradlew :composeApp:${{ matrix.task }}
+
+      - name: Prepare release asset
+        shell: bash
+        run: |
+          mkdir -p dist
+          find composeApp/build/compose/binaries/main \
+            -type f -name "*.${{ matrix.extension }}" \
+            -exec cp {} "dist/ShareDrop-${GITHUB_REF_NAME:-manual}.${{ matrix.extension }}" \;
+
+      - name: Upload desktop installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build APK
+        run: ./gradlew :composeApp:assembleDebug
+
+      - name: Prepare APK
+        run: |
+          mkdir -p dist
+          cp composeApp/build/outputs/apk/debug/*.apk \
+            dist/ShareDrop-android-debug.apk
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [desktop, android]
+
+    steps:
+      - name: Download all builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: dist
+          merge-multiple: true
+
+      - name: Show release files
+        run: ls -lh dist
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --verify-tag \
+            --title "ShareDrop $TAG" \
+            --generate-notes
