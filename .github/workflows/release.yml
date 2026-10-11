@@ -111,6 +111,5 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" dist/* \
-            --verify-tag \
             --title "ShareDrop $TAG" \
             --generate-notes
