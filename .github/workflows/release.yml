@@ -115,7 +115,7 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           if [ "$TAG" = "main" ] || [ -z "$TAG" ]; then
-            echo "Release tag is missing or invalid. Use a tag like v1.0.0"
+            echo "Release tag is missing or invalid. Use a tag like v1.2.3"
             exit 1
           fi
 
