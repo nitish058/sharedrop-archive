@@ -12,6 +12,8 @@ actual class FileReceiver {
     private var isRunning = false
     @Volatile
     private var currentClient: Socket? = null
+    @Volatile
+    private var currentTempFile: File? = null
 
     actual fun startReceiving(
         port: Int,
@@ -29,6 +31,7 @@ actual class FileReceiver {
 
                     Thread {
                         var tempFile: File? = null
+                        var transferCompleted = false
                         runBlocking {
                             try {
                                 val input = DataInputStream(client.getInputStream())
@@ -59,8 +62,9 @@ actual class FileReceiver {
                                 input.readFully(encFileSize)
                                 val fileLength = String(CryptoEngine.decrypt(aesKey, encFileSize)).toLong()
 
-                                val systemTempDir = System.getProperty("java.io.tmpdir")
-                                tempFile = File(systemTempDir, "temp_$fileName")
+                                val systemTempDir = File(System.getProperty("java.io.tmpdir"))
+                                tempFile = File.createTempFile("sharedrop-", ".part", systemTempDir)
+                                currentTempFile = tempFile
                                 onProgress(fileName, 0f, 0L, 0L)
 
                                 // 5. Receive, decrypt, and flush chunks to disk to prevent OOM
@@ -82,10 +86,12 @@ actual class FileReceiver {
                                 }
 
                                 onFileReceived(fileName, tempFile.absolutePath)
+                                transferCompleted = true
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                tempFile?.delete()
                             } finally {
+                                if (!transferCompleted) tempFile?.delete()
+                                if (currentTempFile === tempFile) currentTempFile = null
                                 try {
                                     client.close()
                                 } catch (_: Exception) {
@@ -106,6 +112,7 @@ actual class FileReceiver {
             currentClient?.close()
         } catch (_: Exception) {
         }
+        currentTempFile?.delete()
     }
 
     actual fun stopReceiving() {

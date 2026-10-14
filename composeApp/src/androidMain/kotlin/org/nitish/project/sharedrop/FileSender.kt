@@ -10,6 +10,17 @@ actual class FileSender {
 
     private var transferThread: Thread? = null
     private var currentSocket: Socket? = null
+
+    /** Removes only the private cache copy made by AndroidContext for a send. */
+    private fun removeTransferCache(absolutePath: String) {
+        val cachedFile = File(absolutePath)
+        val transferDirectory = cachedFile.parentFile
+        if (transferDirectory?.name?.startsWith("sharedrop-") == true) {
+            cachedFile.delete()
+            transferDirectory.delete()
+        }
+    }
+
     actual fun sendFile(
         host: String,
         port: Int,
@@ -85,8 +96,10 @@ actual class FileSender {
                     e.printStackTrace()
                     onResult(false)
                 } finally {
-
                     // The transfer has finished or been canceled.
+                    // Android document URIs are copied to a private cache file
+                    // before sending. It must not survive completion or cancel.
+                    removeTransferCache(absolutePath)
                     transferThread = null
                     currentSocket = null
                 }
