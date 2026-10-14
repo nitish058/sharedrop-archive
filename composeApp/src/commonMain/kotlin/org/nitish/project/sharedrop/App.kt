@@ -485,7 +485,7 @@ fun HomeScreen() {
                             text = "${formatSize(transferredMB)} / ${formatSize(totalMB)}"
                         )
 
-                        if (isReceiving) {
+                        if (isSending || isReceiving) {
                             Text(
                                 text = "${(transferSpeed / 1024.0 / 1024.0).toInt()} MB/s"
                             )
